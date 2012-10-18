@@ -5,9 +5,7 @@
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# detail see http://www.gnu.org/licenses/gpl-2.0.html
+# of the License, detail see http://www.gnu.org/licenses/gpl-2.0.html
 #
 #usage: squidus-parser.pl [date]
 #	today		 - only current day
@@ -25,11 +23,9 @@ sub printlog {
 	close (SQUIDUSLOG);
 }
 
-
-my $debug = 2;
-
 #Defaults
 my $filter_date	= 0;
+my $debug = 0;
 my $file_log = "";
 	#squid native log
 	#970313965.619 1249	  denis.local TCP_MISS/200 2598 GET	   http://www.emalecentral.com/tasha/thm_4374x013.jpg -		DIRECT/www.emalecentral.com image/jpeg
@@ -114,6 +110,9 @@ if (open (CONFIG, "<", $file_conf)) {
 			elsif ($config_param eq "logcol_username") {
 				$logline_col_username = $Value;
 			}
+			elsif ($config_param eq "debug") {
+				$debug = $Value;
+			}
 			else {
 				printlog "Warning! Unknown parameter in config file - $config_param";
 			}
@@ -153,11 +152,11 @@ my $logline_date	= 0;
 foreach $filename (@filelist) {
 	print ">>> use file :: $logpath$filename\n" if ($debug > 0);
 	printlog "Parsing file $logpath$filename";
-	open (FF, "<", "$logpath$filename") or die "can't access log file\n";
-	#open FF, "$catname $logpath/$filename|" || die "can't access log file\n";
+	open (ACCESSLOG, "<", "$logpath$filename") or die "can't access log file\n";
+	#open ACCESSLOG, "$catname $logpath/$filename|" || die "can't access log file\n";
 	$linenum = 0;
 
-	while (<FF>) {
+	while (<ACCESSLOG>) {
 		chomp;
 		$debug_loglines++;
 		$linenum++;
@@ -221,7 +220,7 @@ foreach $filename (@filelist) {
 		
 		$debug_parsed++;
 	}
-	close (FF);
+	close (ACCESSLOG);
 }
 printlog "Warning! $debug_unknownurl lines have unknown URL format" if ($debug_unknownurl > 0);
 printlog ">>>> End parsing. (elapse " . ( time() - $^T ) . " sec)";
