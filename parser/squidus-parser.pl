@@ -29,7 +29,11 @@ use Time::Local;
 
 sub printlog {
 	my @logtime=localtime();
-	open (SQUIDUSLOG, ">>", $logpath . "squidus.log") or die ">>>> cannot open log file $!";
+	my $logpath		= "squidus.log";
+	if (-d "/var/log/") {
+		$logpath = "/var/log/squidus.log";
+	}
+	open (SQUIDUSLOG, ">>",  $logpath) or die ">>>> cannot open log file $!";
 	printf SQUIDUSLOG "%04u-%02u-%02u %02u:%02u:%02u %s\n", $logtime[5]+1900, $logtime[4]+1, $logtime[3], $logtime[2], $logtime[1], $logtime[0], shift(@_);
 	close (SQUIDUSLOG);
 }
@@ -38,7 +42,7 @@ sub printlog {
 my $filter_date	= 0;
 my $debug = 0;
 my $file_log = "";
-	#squid native log
+	#squid accsess log native format
 	#970313965.619 1249	  denis.local TCP_MISS/200 2598 GET	   http://www.emalecentral.com/tasha/thm_4374x013.jpg -		DIRECT/www.emalecentral.com image/jpeg
 	# timestamp	  elapsed host		  type		   size method url													user  hierarechy					type
 my $logline_col_timestamp	= 0;	# squid native log format
@@ -57,10 +61,6 @@ my $dbi_db_name		= "squidus";	# Database name
 my $dbi_user		= "parser";		# DB user name
 my $dbi_password	= ''; 			# DB user haven't password
 
-my $logpath		= "";
-if (-d "/var/log/") {
-	$logpath = "/var/log/";
-}
 my $file_conf	= "squidus.conf";
 if (-d "/etc/") {
 	$file_conf = "/etc/squidus.conf";
@@ -172,13 +172,16 @@ $dbh = DBI->connect("DBI:$dbi_driver:database=$dbi_db_name;host=$dbi_hostname",
 
 my $logline_date	= 0;
 foreach $filename (@filelist) {
-	$arch_proc = "cat ";
-	$arch_proc = "zcat " if ($filename =~ m/\.gz$/);
-	$arch_proc = "bzcat " if ($filename =~ m/\.bz2$/);
-	print ">>> use file :: $arch_proc$accesslogpath$filename\n" if ($debug > 0);
-	printlog "Parsing file $accesslogpath$filename";
-	#open (ACCESSLOG, "<", "$accesslogpath$filename") or die "can't access log file\n";
-	open ACCESSLOG, "$arch_proc$accesslogpath$filename |" || die "can't access log file $arch_proc$accesslogpath/$filename\n";
+	$arch_proc = "";
+	$arch_proc = "zcat" if ($filename =~ m/\.gz$/);
+	$arch_proc = "bzcat" if ($filename =~ m/\.bz2$/);
+	print ">>> read file $arch_proc$accesslogpath$filename\n" if ($debug > 0);
+	printlog "Parsing file arch_proc $accesslogpath$filename";
+	if ($arch_proc ne "") {
+		open ACCESSLOG, "$arch_proc $accesslogpath$filename |" || die "can't access log file $arch_proc $accesslogpath/$filename\n";
+	} else {
+		open (ACCESSLOG, "<", "$accesslogpath$filename") or die "can't access log file\n";
+	}
 	$linenum = 0;
 
 	while (<ACCESSLOG>) {
@@ -247,6 +250,7 @@ foreach $filename (@filelist) {
 		$debug_parsed++;
 	}
 	close (ACCESSLOG);
+	last if (($filter_date != 0) and ($logline_timestamp > $filter_date + 86399));
 }
 printlog "Warning! $debug_unknownurl lines have unknown URL format" if ($debug_unknownurl > 0);
 printlog ">>>> End parsing. (elapse " . ( time() - $^T ) . " sec)";
