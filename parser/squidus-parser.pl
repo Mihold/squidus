@@ -1,13 +1,24 @@
 #!/usr/bin/perl
 
-# Squidus Project (c) 2012 Mykhaylo Kutsenko
+# Squidus (c) 2012 Mykhaylo Kutsenko
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
-# of the License, detail see http://www.gnu.org/licenses/gpl-2.0.html
+# of the License.
 #
-#usage: squidus-parser.pl [date]
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+# 
+# For details see http://www.gnu.org/licenses/gpl-2.0.html
+
+# usage: squidus-parser.pl [date]
 #	today		 - only current day
 #	yesterday	 - yesterday
 #	YYYYMMDD	 - parse day
@@ -18,7 +29,7 @@ use Time::Local;
 
 sub printlog {
 	my @logtime=localtime();
-	open (SQUIDUSLOG, ">>", "squidus.log") or die ">>>> cannot open log file $!";
+	open (SQUIDUSLOG, ">>", $logpath . "squidus.log") or die ">>>> cannot open log file $!";
 	printf SQUIDUSLOG "%04u-%02u-%02u %02u:%02u:%02u %s\n", $logtime[5]+1900, $logtime[4]+1, $logtime[3], $logtime[2], $logtime[1], $logtime[0], shift(@_);
 	close (SQUIDUSLOG);
 }
@@ -37,15 +48,23 @@ my $logline_col_size		= 4;	# squid native log format
 my $logline_col_method		= 5;	# squid native log format
 my $logline_col_url			= 6;	# squid native log format
 my $logline_col_username	= 7;	# squid native log format
+my $accesslogpath	= "";			# Path to access log files
 my @filelist	= ("access.log");	# parse access.log only
-my $logpath		= "";
-my $file_conf	= "squidus.conf";
 my $squidus_server_id 	= 1;		# Proxy server ID
 my $dbi_driver		= "mysql";		# DBS type
 my $dbi_hostname	= "localhost";	# DB server host name or IP
 my $dbi_db_name		= "squidus";	# Database name
 my $dbi_user		= "parser";		# DB user name
 my $dbi_password	= ''; 			# DB user haven't password
+
+my $logpath		= "";
+if (-d "/var/log/") {
+	$logpath = "/var/log/";
+}
+my $file_conf	= "squidus.conf";
+if (-d "/etc/") {
+	$file_conf = "/etc/squidus.conf";
+}
 
 printlog ">>>> Start parsing.";
 
@@ -68,6 +87,9 @@ if (open (CONFIG, "<", $file_conf)) {
 					printlog ">>>>Error! File list is empty. Program terminated.";
 					exit;
 				}
+			}
+			elsif ($config_param eq "proxy_logfilepath") {
+				$accesslogpath = $Value;
 			}
 			elsif ($config_param eq "dbs_hostname") {
 				$dbi_hostname = $Value;
@@ -150,10 +172,10 @@ $dbh = DBI->connect("DBI:$dbi_driver:database=$dbi_db_name;host=$dbi_hostname",
 
 my $logline_date	= 0;
 foreach $filename (@filelist) {
-	print ">>> use file :: $logpath$filename\n" if ($debug > 0);
-	printlog "Parsing file $logpath$filename";
-	open (ACCESSLOG, "<", "$logpath$filename") or die "can't access log file\n";
-	#open ACCESSLOG, "$catname $logpath/$filename|" || die "can't access log file\n";
+	print ">>> use file :: $accesslogpath$filename\n" if ($debug > 0);
+	printlog "Parsing file $accesslogpath$filename";
+	open (ACCESSLOG, "<", "$accesslogpath$filename") or die "can't access log file\n";
+	#open ACCESSLOG, "$catname $accesslogpath/$filename|" || die "can't access log file\n";
 	$linenum = 0;
 
 	while (<ACCESSLOG>) {
@@ -179,8 +201,9 @@ foreach $filename (@filelist) {
 				last;
 			}
 		}
-		# Clear old data
+		
 		if ($logline_date != int($logline_timestamp/86400)) {
+			# Clear old data
 			($day, $month, $year) = (gmtime($logline_timestamp)) [3,4,5];
 			$month++;
 			$year += 1900;
@@ -232,9 +255,9 @@ if ($debug > 0) {
 	$worktime = ( time() - $^T );
 	print "run TIME: $worktime sec\n";
 	print "Squidus log parser statistic report\n\n";
-	printf( "	   %10u lines processed\n",				 	$debug_loglines);
-	printf( "	   %10u lines parsed\n",					$debug_parsed);
-	printf( "	   %10u lines skiped by filters\n",	 		$debug_skipbyfilter);
-	printf( "	   %10u lines have unknown URL format\n",	$debug_unknownurl);
+	printf( "\t%10u lines processed\n",				 	$debug_loglines);
+	printf( "\t%10u lines parsed\n",					$debug_parsed);
+	printf( "\t%10u lines skiped by filters\n",	 		$debug_skipbyfilter);
+	printf( "\t%10u lines have unknown URL format\n",	$debug_unknownurl);
 }
 
