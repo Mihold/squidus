@@ -172,10 +172,13 @@ $dbh = DBI->connect("DBI:$dbi_driver:database=$dbi_db_name;host=$dbi_hostname",
 
 my $logline_date	= 0;
 foreach $filename (@filelist) {
-	print ">>> use file :: $accesslogpath$filename\n" if ($debug > 0);
+	$arch_proc = "cat ";
+	$arch_proc = "zcat " if ($filename =~ m/\.gz$/);
+	$arch_proc = "bzcat " if ($filename =~ m/\.bz2$/);
+	print ">>> use file :: $arch_proc$accesslogpath$filename\n" if ($debug > 0);
 	printlog "Parsing file $accesslogpath$filename";
-	open (ACCESSLOG, "<", "$accesslogpath$filename") or die "can't access log file\n";
-	#open ACCESSLOG, "$catname $accesslogpath/$filename|" || die "can't access log file\n";
+	#open (ACCESSLOG, "<", "$accesslogpath$filename") or die "can't access log file\n";
+	open ACCESSLOG, "$arch_proc$accesslogpath$filename |" || die "can't access log file $arch_proc$accesslogpath/$filename\n";
 	$linenum = 0;
 
 	while (<ACCESSLOG>) {
