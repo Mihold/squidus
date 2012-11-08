@@ -38,8 +38,11 @@ sub printlog {
 	close (SQUIDUSLOG);
 }
 
+printlog ">>>> Start parsing.";
+
 #Defaults
 my $filter_date	= 0;
+my $filter_gmt	= 0;
 my $debug = 0;
 my $file_log = "";
 	#squid accsess log native format
@@ -65,8 +68,6 @@ my $file_conf	= "squidus.conf";
 if (-d "/etc/") {
 	$file_conf = "/etc/squidus.conf";
 }
-
-printlog ">>>> Start parsing.";
 
 # Get parameters from config file
 if (open (CONFIG, "<", $file_conf)) {
@@ -162,8 +163,15 @@ if (exists $ARGV[0]) {
 	}
 }
 if ($filter_date != 0) {
+	if ($filter_gmt == 0) {		# Time zone offset correction
+		@ftime=localtime($filter_date);
+		$timeoffset =  timegm(@ftime) - $filter_date;
+		#$timeoffset =  timegm(@ftime) - timelocal(@ftime);
+		printlog sprintf("Correct time zone offset UTC%+d", int($timeoffset/3600));
+		$filter_date -= $timeoffset;
+	}
 	my @ftime=gmtime($filter_date);
-	printlog sprintf "Set date filter for today. [%04u-%02u-%02u %02u:%02u:%02u GMT]", $ftime[5]+1900, $ftime[4]+1, $ftime[3], $ftime[2], $ftime[1], $ftime[0];
+	printlog sprintf "Set date filter. [%04u-%02u-%02u %02u:%02u:%02u GMT]", $ftime[5]+1900, $ftime[4]+1, $ftime[3], $ftime[2], $ftime[1], $ftime[0];
 }
 
 # Connect to database server and set transaction mode
@@ -171,16 +179,25 @@ $dbh = DBI->connect("DBI:$dbi_driver:database=$dbi_db_name;host=$dbi_hostname",
     $dbi_user, $dbi_password, {AutoCommit => 0}) || die print "Can't connect";
 
 my $logline_date	= 0;
+my $debug_filenum	= 0;
+my $debug_loglines	= 0;
 foreach $filename (@filelist) {
 	$arch_proc = "";
 	$arch_proc = "zcat" if ($filename =~ m/\.gz$/);
 	$arch_proc = "bzcat" if ($filename =~ m/\.bz2$/);
 	print ">>> read file $arch_proc$accesslogpath$filename\n" if ($debug > 0);
 	printlog "Parsing file arch_proc $accesslogpath$filename";
+	if ((not -e "$accesslogpath$filename") and ($debug_filenum == 0) and ($filename ne $filelist[-1])){
+		print ">>> oldest file $accesslogpath$filename do not exist\n" if ($debug > 0);
+		printlog "Oldest file $accesslogpath$filename do not exist.";
+		next;
+	}
 	if ($arch_proc ne "") {
 		open ACCESSLOG, "$arch_proc $accesslogpath$filename |" || die "can't access log file $arch_proc $accesslogpath/$filename\n";
+		$debug_filenum++;
 	} else {
 		open (ACCESSLOG, "<", "$accesslogpath$filename") or die "can't access log file\n";
+		$debug_filenum++;
 	}
 	$linenum = 0;
 
@@ -213,11 +230,12 @@ foreach $filename (@filelist) {
 			($day, $month, $year) = (gmtime($logline_timestamp)) [3,4,5];
 			$month++;
 			$year += 1900;
-			print ">>> Clearing data for $year-$month-$day..." if ($debug > 0);
-			$sql = "DELETE FROM stat_site WHERE Server_id=$squidus_server_id AND LogDate=DATE(FROM_UNIXTIME($logline_timestamp))";
+			$sql_date = "$year-$month-$day";
+			print ">>> Clearing data for $sql_date..." if ($debug > 0);
+			$sql = "DELETE FROM stat_site WHERE Server_id=$squidus_server_id AND LogDate='$sql_date'";
 			$dbh->do($sql) or die $dbh->errstr;
 			print " done\n" if ($debug > 0);
-			printlog "Clearing data for $year-$month-$day.";
+			printlog "Clearing data for $sql_date.";
 			$logline_date = int($logline_timestamp/60/60/24);
 		}
 		$logline_user = ($logline[$logline_col_username] eq "-") ? $logline[$logline_col_userhost] : $logline[$logline_col_username];
@@ -243,7 +261,7 @@ foreach $filename (@filelist) {
 		
 		# Add row
 		$sql = "INSERT INTO stat_site (Server_id, LogDate, UserName, StatusSquid, RequestSite, RequestBytes, RequestCount)
-					VALUE ($squidus_server_id, DATE(FROM_UNIXTIME($logline_timestamp)), '$logline_user', '$logline_st_sq', '$logline_site', $logline_size, 1)
+					VALUE ($squidus_server_id, '$sql_date', '$logline_user', '$logline_st_sq', '$logline_site', $logline_size, 1)
 					ON DUPLICATE KEY UPDATE RequestCount=RequestCount+1, RequestBytes=RequestBytes+$logline_size";
 		$dbh->do($sql) or die $dbh->errstr;
 		
