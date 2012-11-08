@@ -149,44 +149,67 @@ if (open (CONFIG, "<", $file_conf)) {
 # Check date filter
 if (exists $ARGV[0]) {
 	if ($ARGV[0] eq "today") {
-		$filter_date = int(time()/86400)*86400;
+		if ($filter_gmt == 0) {
+			$filter_date = timelocal( 0, 0, 0, (localtime())[3..5]);
+			$filter_end  = timelocal( 59, 59, 23, (localtime())[3..5]);
+		} else {
+			$filter_date = int(time()/86400)*86400;
+			$filter_end  = $filter_date + 86399;
+		}
 	}
 	elsif ($ARGV[0] eq "yesterday") {
-		$filter_date = (int(time()/86400)-1)*86400;
+		if ($filter_gmt == 0) {
+			$filter_date = timelocal( 0, 0, 0, (localtime(time()-86400))[3..5]);
+			$filter_end  = timelocal( 59, 59, 23, (localtime(time()-86400))[3..5]);
+		} else {
+			$filter_date = (int(time()/86400)-1)*86400;
+			$filter_end  = $filter_date + 86399;
+		}
 	}
 	elsif ($ARGV[0] =~ m/^(\d\d\d\d)(\d\d)(\d\d)$/) {
-		$filter_date = timegm( 0, 0, 0,$3,$2-1,$1);
+		if ($filter_gmt == 0) {
+			$filter_date = timelocal( 0, 0, 0, $3, $2-1, $1);
+			$filter_end  = timelocal( 59, 59, 23, $3, $2-1, $1);
+		} else {
+			$filter_date = timegm( 0, 0, 0, $3, $2-1, $1);
+			$filter_end  = $filter_date + 86399;
+		}
 	} else {
 		print "Unknown parameter.\nusage: squidus-parser.pl [date]\n\ttoday\t\t- only current day\n\tyesterday\t- yesterday\n\tYYYYMMDD\t- parse day";
 		printlog ">>>>Error! Unknown command line parameter.";
 		exit;
 	}
 }
+
+# Time zone offset
+my $timeoffset =  0;
+if ($filter_gmt == 0) {
+	$timeoffset =  time();
+	@ftime=localtime($timeoffset);
+	$timeoffset =  timegm(@ftime) - $timeoffset;
+	printlog sprintf("Time zone offset UTC%+d:%02u", int($timeoffset/3600), int(($timeoffset-int($timeoffset/3600)*3600)/60));
+} else {
+	printlog "Time in UTC";
+}
+
 if ($filter_date != 0) {
-	if ($filter_gmt == 0) {		# Time zone offset correction
-		@ftime=localtime($filter_date);
-		$timeoffset =  timegm(@ftime) - $filter_date;
-		#$timeoffset =  timegm(@ftime) - timelocal(@ftime);
-		printlog sprintf("Correct time zone offset UTC%+d", int($timeoffset/3600));
-		$filter_date -= $timeoffset;
-	}
 	my @ftime=gmtime($filter_date);
-	printlog sprintf "Set date filter. [%04u-%02u-%02u %02u:%02u:%02u GMT]", $ftime[5]+1900, $ftime[4]+1, $ftime[3], $ftime[2], $ftime[1], $ftime[0];
+	printlog sprintf "Set date filter. [%04u-%02u-%02u / %u-%u]", $ftime[5]+1900, $ftime[4]+1, $ftime[3], $filter_date, $filter_end;
 }
 
 # Connect to database server and set transaction mode
 $dbh = DBI->connect("DBI:$dbi_driver:database=$dbi_db_name;host=$dbi_hostname",
     $dbi_user, $dbi_password, {AutoCommit => 0}) || die print "Can't connect";
 
-my $logline_date	= 0;
+my $logline_end_day	= 0;
 my $debug_filenum	= 0;
 my $debug_loglines	= 0;
 foreach $filename (@filelist) {
 	$arch_proc = "";
 	$arch_proc = "zcat" if ($filename =~ m/\.gz$/);
 	$arch_proc = "bzcat" if ($filename =~ m/\.bz2$/);
-	print ">>> read file $arch_proc$accesslogpath$filename\n" if ($debug > 0);
-	printlog "Parsing file arch_proc $accesslogpath$filename";
+	print ">>> read file $arch_proc $accesslogpath$filename\n" if ($debug > 0);
+	printlog "Parsing file $arch_proc $accesslogpath$filename";
 	if ((not -e "$accesslogpath$filename") and ($debug_filenum == 0) and ($filename ne $filelist[-1])){
 		print ">>> oldest file $accesslogpath$filename do not exist\n" if ($debug > 0);
 		printlog "Oldest file $accesslogpath$filename do not exist.";
@@ -209,34 +232,33 @@ foreach $filename (@filelist) {
 
 		(@logline) = split;
 		$logline_timestamp = int($logline[$logline_col_timestamp]);
-		
 
 		# Filtering by date
 		if ($filter_date != 0) {
 			if ($logline_timestamp < $filter_date) {
-				print ">>>> skipTimestampFilter skiping lines...\n" if (($debug > 1) and ($linenum == 1));
-				print ">>>> skipTimestampFilter $logline_timestamp\n" if ($debug > 8);
+				print "Timestamp filter - skiping lines...\n" if (($debug > 1) and ($linenum == 1));
+				print "Timestamp filter - skip line $logline_timestamp\n" if ($debug > 8);
 				$debug_skipbyfilter++;
 				next;
 			}
-			if ($logline_timestamp > $filter_date + 86399) {
-				print ">>>> skipTimestampFilter end of date detected.\n" if ($debug > 1);
+			if ($logline_timestamp > $filter_end) {
+				print "Timestamp filter - end of date detected, stop working.\n" if ($debug > 1);
 				last;
 			}
 		}
 		
-		if ($logline_date != int($logline_timestamp/86400)) {
-			# Clear old data
-			($day, $month, $year) = (gmtime($logline_timestamp)) [3,4,5];
+		if ($logline_end_day < $logline_timestamp) {		# New day
+			($day, $month, $year) = ($filter_gmt == 0 ? (localtime($logline_timestamp)) [3,4,5] : (gmtime($logline_timestamp)) [3,4,5]);
 			$month++;
 			$year += 1900;
 			$sql_date = "$year-$month-$day";
-			print ">>> Clearing data for $sql_date..." if ($debug > 0);
+			# Clear old data
+			print "Clearing data for $sql_date..." if ($debug > 0);
+			printlog "Clearing data for $sql_date.";
 			$sql = "DELETE FROM stat_site WHERE Server_id=$squidus_server_id AND LogDate='$sql_date'";
 			$dbh->do($sql) or die $dbh->errstr;
 			print " done\n" if ($debug > 0);
-			printlog "Clearing data for $sql_date.";
-			$logline_date = int($logline_timestamp/60/60/24);
+			$logline_end_day = ($filter_gmt == 0 ? timelocal(59, 59, 23, $day, $month-1, $year-1900) : timegm(59, 59, 23, $day, $month-1, $year-1900));
 		}
 		$logline_user = ($logline[$logline_col_username] eq "-") ? $logline[$logline_col_userhost] : $logline[$logline_col_username];
 		($logline_st_sq, $logline_st_http) = split("/", $logline[$logline_col_type]);
@@ -258,6 +280,7 @@ foreach $filename (@filelist) {
 		$logline_size = $logline[$logline_col_size];
 
 		#ToDo: check row with invalid record
+		#   - Site addres length
 		
 		# Add row
 		$sql = "INSERT INTO stat_site (Server_id, LogDate, UserName, StatusSquid, RequestSite, RequestBytes, RequestCount)
@@ -268,7 +291,7 @@ foreach $filename (@filelist) {
 		$debug_parsed++;
 	}
 	close (ACCESSLOG);
-	last if (($filter_date != 0) and ($logline_timestamp > $filter_date + 86399));
+	last if (($filter_date != 0) and ($logline_timestamp > $filter_end));
 }
 printlog "Warning! $debug_unknownurl lines have unknown URL format" if ($debug_unknownurl > 0);
 printlog ">>>> End parsing. (elapse " . ( time() - $^T ) . " sec)";
