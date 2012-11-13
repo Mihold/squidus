@@ -201,6 +201,13 @@ if ($filter_date != 0) {
 $dbh = DBI->connect("DBI:$dbi_driver:database=$dbi_db_name;host=$dbi_hostname",
     $dbi_user, $dbi_password, {AutoCommit => 0}) || die print "Can't connect";
 
+# Clear temporary data
+print "Clearing data for $sql_date..." if ($debug > 0);
+printlog "Clearing temporary table.";
+$sql = "DELETE FROM stat_site_tmp WHERE Server_id=$squidus_server_id";
+$dbh->do($sql) or die $dbh->errstr;
+print " done\n" if ($debug > 0);
+
 my $logline_end_day	= 0;
 my $debug_filenum	= 0;
 my $debug_loglines	= 0;
@@ -283,7 +290,7 @@ foreach $filename (@filelist) {
 		#   - Site addres length
 		
 		# Add row
-		$sql = "INSERT INTO stat_site (Server_id, LogDate, UserName, StatusSquid, RequestSite, RequestBytes, RequestCount)
+		$sql = "INSERT INTO stat_site_tmp (Server_id, LogDate, UserName, StatusSquid, RequestSite, RequestBytes, RequestCount)
 					VALUE ($squidus_server_id, '$sql_date', '$logline_user', '$logline_st_sq', '$logline_site', $logline_size, 1)
 					ON DUPLICATE KEY UPDATE RequestCount=RequestCount+1, RequestBytes=RequestBytes+$logline_size";
 		$dbh->do($sql) or die $dbh->errstr;
