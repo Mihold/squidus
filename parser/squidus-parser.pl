@@ -206,6 +206,7 @@ print "Clearing data for $sql_date..." if ($debug > 0);
 printlog "Clearing temporary table.";
 $sql = "DELETE FROM stat_site_tmp WHERE Server_id=$squidus_server_id";
 $dbh->do($sql) or die $dbh->errstr;
+$dbh->commit;
 print " done\n" if ($debug > 0);
 
 my $logline_end_day	= 0;
@@ -302,6 +303,41 @@ foreach $filename (@filelist) {
 }
 printlog "Warning! $debug_unknownurl lines have unknown URL format" if ($debug_unknownurl > 0);
 printlog ">>>> End parsing. (elapse " . ( time() - $^T ) . " sec)";
+
+# Trasfer data from temporary table
+#
+# Add new domain names
+print "SQL: Add new sites..." if ($debug > 0);
+$sql = "INSERT INTO info_site (domain_name)
+SELECT t1.RequestSite
+FROM stat_site_tmp AS t1
+	LEFT JOIN info_site AS t2 ON t1.RequestSite = t2.domain_name
+WHERE t2.site_id IS NULL
+GROUP BY t1.RequestSite
+";
+my $sql_rows = $dbh->do($sql) or die $dbh->errstr;
+print " affected $sql_rows rows\n" if ($debug > 0);
+printlog "Add new $sql_rows sites.";
+
+# Add statistic data
+print "SQL: Add statistic data..." if ($debug > 0);
+$sql = "INSERT INTO stat_site (server_id, LogDate, UserName, RequestSite_id, RequestBytes, RequestCount)
+SELECT t1.Server_id, t1.LogDate, t1.UserName, t2.site_id, SUM(t1.RequestBytes) AS RequestBytes, SUM(t1.RequestCount) AS RequestCount
+FROM stat_site_tmp AS t1 
+	LEFT JOIN info_site AS t2 ON t1.RequestSite = t2.domain_name
+GROUP BY t1.Server_id, t1.LogDate, t1.UserName, t2.site_id
+";
+$sql_rows = $dbh->do($sql) or die $dbh->errstr;
+print " affected $sql_rows rows\n" if ($debug > 0);
+printlog "Add statistic data. ($sql_rows rows)";
+
+# Clear temporary data
+#print "Clearing data for $sql_date..." if ($debug > 0);
+#printlog "Clearing temporary table.";
+#$sql = "DELETE FROM stat_site_tmp WHERE Server_id=$squidus_server_id";
+#$dbh->do($sql) or die $dbh->errstr;
+#print " done\n" if ($debug > 0);
+
 
 $dbh->commit;
 $dbh->disconnect;
