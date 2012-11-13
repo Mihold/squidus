@@ -199,7 +199,7 @@ if ($filter_date != 0) {
 
 # Connect to database server and set transaction mode
 $dbh = DBI->connect("DBI:$dbi_driver:database=$dbi_db_name;host=$dbi_hostname",
-    $dbi_user, $dbi_password, {AutoCommit => 0}) || die print "Can't connect";
+    $dbi_user, $dbi_password, {RaiseError => 1, AutoCommit => 0}) || die print "Can't connect";
 
 # Clear temporary data
 print "Clearing data for $sql_date..." if ($debug > 0);
