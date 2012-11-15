@@ -217,10 +217,10 @@ foreach $filename (@filelist) {
 	$arch_proc = "zcat" if ($filename =~ m/\.gz$/);
 	$arch_proc = "bzcat" if ($filename =~ m/\.bz2$/);
 	print ">>> read file $arch_proc $accesslogpath$filename\n" if ($debug > 0);
-	printlog "Parsing file $arch_proc $accesslogpath$filename";
+	printlog "Parsing file $accesslogpath$filename";
 	if ((not -e "$accesslogpath$filename") and ($debug_filenum == 0) and ($filename ne $filelist[-1])){
 		print ">>> oldest file $accesslogpath$filename do not exist\n" if ($debug > 0);
-		printlog "Oldest file $accesslogpath$filename do not exist.";
+		printlog "Oldest file $accesslogpath$filename do not exist, go to next file.";
 		next;
 	}
 	if ($arch_proc ne "") {
@@ -302,7 +302,7 @@ foreach $filename (@filelist) {
 	last if (($filter_date != 0) and ($logline_timestamp > $filter_end));
 }
 printlog "Warning! $debug_unknownurl lines have unknown URL format" if ($debug_unknownurl > 0);
-printlog ">>>> End parsing. (elapse " . ( time() - $^T ) . " sec)";
+printlog ">> End parsing files. (elapse " . ( time() - $^T ) . " sec)";
 
 # Trasfer data from temporary table
 #
@@ -332,12 +332,13 @@ print " affected $sql_rows rows\n" if ($debug > 0);
 printlog "Add statistic data. ($sql_rows rows)";
 
 # Clear temporary data
-#print "Clearing data for $sql_date..." if ($debug > 0);
-#printlog "Clearing temporary table.";
-#$sql = "DELETE FROM stat_site_tmp WHERE Server_id=$squidus_server_id";
-#$dbh->do($sql) or die $dbh->errstr;
-#print " done\n" if ($debug > 0);
+if ($debug == 0) {
+	printlog "Clearing temporary table.";
+	$sql = "DELETE FROM stat_site_tmp WHERE Server_id=$squidus_server_id";
+	$dbh->do($sql) or die $dbh->errstr;
+}
 
+printlog ">>>> End working. (elapse " . ( time() - $^T ) . " sec)";
 
 $dbh->commit;
 $dbh->disconnect;
