@@ -5,6 +5,13 @@ CREATE  TABLE IF NOT EXISTS info_site (
   INDEX sitename (domain_name ASC) )
 ENGINE = MyISAM;
 
+CREATE  TABLE IF NOT EXISTS info_server (
+  server_id TINYINT UNSIGNED NOT NULL AUTO_INCREMENT ,
+  server_name VARCHAR(256) NOT NULL ,
+  server_descr VARCHAR(256) ,
+  PRIMARY KEY (server_id) )
+ENGINE = MyISAM;
+
 CREATE  TABLE IF NOT EXISTS stat_site_tmp (
   Server_id TINYINT UNSIGNED NOT NULL DEFAULT 1 ,
   LogDate DATE NOT NULL ,
@@ -25,3 +32,6 @@ CREATE  TABLE IF NOT EXISTS stat_site (
   RequestCount INT UNSIGNED NOT NULL ,
   PRIMARY KEY (server_id, LogDate, user_id, StatusSquid, RequestSite_id) )
 ENGINE = MyISAM;
+
+-- Initial data
+INSERT INTO info_server (server_id, server_name, server_descr) VALUES (1, 'Proxy server #1', 'Default first server');

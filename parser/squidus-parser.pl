@@ -63,7 +63,7 @@ my $dbi_hostname	= "localhost";	# DB server host name or IP
 my $dbi_db_name		= "squidus";	# Database name
 my $dbi_user		= "parser";		# DB user name
 my $dbi_password	= ''; 			# DB user haven't password
-my $dbi_transaction = 0				# Use transaction mode (MySQL MyISAM is not support this mode)
+my $dbi_transaction = 0;			# Use transaction mode (MySQL MyISAM is not support this mode)
 
 my $file_conf	= "squidus.conf";
 if (-d "/etc/") {

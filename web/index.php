@@ -17,8 +17,57 @@
 # 
 # For details see http://www.gnu.org/licenses/gpl-2.0.html
 
-if(file_exists('install') && !file_exists('install/install.done')) {
-	require('install/index.php');
-	die();
+# Load default laguage file
+require('lang/en.php');
+
+# Get initial configuration
+require('squidus.ini.php');
+
+# Check laguage localization
+if (isset($conf['lang'])) {
+	if(!file_exists('lang/' . $conf['lang'] . '.php')) {
+		$template['err'] .= $lang['ERR_LANGUAGE_FILE'];
+	} else {
+		include('lang/' . $conf['lang'] . '.php');
+		$lang = array_merge($lang, $lang_local);
+		unset($lang_local);
+	}
+}
+
+# Check template folder
+if(!file_exists('template')) {
+	die($lang['ERR_NO_TEMPATE']);
+}
+
+# Connect to BDS
+$dbs = mysql_connect($conf['dbs_server'], $conf['dbs_user'], $conf['dbs_pass']);
+
+if (!$dbs) {
+    $template['err'] .= $lang['ERR_DBS_CONNECT'] . mysql_error();
+}
+
+if(file_exists('install')) {
+	# Redirect to install folder or import installation script
+	echo 'Installation directory detected.';
+	exit();
+}
+
+if (!mysql_select_db($dbs_db_name, $dbs)) {
+		$template['err'] .= $lang['ERR_DBS_DB'] . mysql_error();
+}
+
+# Check user rights
+
+# Prepare output data
+
+mysql_close($dbs);
+
+# Apply data to template
+
+# Output formated page
+if (!$template['err']) {
+	echo htmlspecialchars($template['err']);
+} else {
+	echo 'OK';
 }
 ?>
