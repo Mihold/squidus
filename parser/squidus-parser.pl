@@ -63,6 +63,7 @@ my $dbi_hostname	= "localhost";	# DB server host name or IP
 my $dbi_db_name		= "squidus";	# Database name
 my $dbi_user		= "parser";		# DB user name
 my $dbi_password	= ''; 			# DB user haven't password
+my $dbi_transaction = 0				# Use transaction mode (MySQL MyISAM is not support this mode)
 
 my $file_conf	= "squidus.conf";
 if (-d "/etc/") {
@@ -103,6 +104,14 @@ if (open (CONFIG, "<", $file_conf)) {
 			}
 			elsif ($config_param eq "dbs_database") {
 				$dbi_db_name = $Value;
+			}
+			elsif ($config_param eq "dbs_transaction") {
+				if (($Value == 0) or ($Value == 1)) {
+					$dbi_transaction = $Value;
+				} else {
+					printlog ">>>>Error! Unknown value in required parameter dbs_transaction. Program terminated.";
+					exit;
+				}
 			}
 			elsif ($config_param eq "squidus_proxyid") {
 				if ($Value > 0) {
@@ -197,16 +206,21 @@ if ($filter_date != 0) {
 	printlog sprintf "Set date filter. [%04u-%02u-%02u / %u-%u]", $ftime[5]+1900, $ftime[4]+1, $ftime[3], $filter_date, $filter_end;
 }
 
-# Connect to database server and set transaction mode
+# Connect to database server
+if ($dbi_transaction == 1) {
 $dbh = DBI->connect("DBI:$dbi_driver:database=$dbi_db_name;host=$dbi_hostname",
-    $dbi_user, $dbi_password, {RaiseError => 1, AutoCommit => 0}) || die print "Can't connect";
+    $dbi_user, $dbi_password, {RaiseError => 1, AutoCommit => 0}) or die print "Can't connect";
+} else {
+$dbh = DBI->connect("DBI:$dbi_driver:database=$dbi_db_name;host=$dbi_hostname",
+    $dbi_user, $dbi_password) or die print "Can't connect";
+}
 
 # Clear temporary data
 print "Clearing data for $sql_date..." if ($debug > 0);
 printlog "Clearing temporary table.";
 $sql = "DELETE FROM stat_site_tmp WHERE Server_id=$squidus_server_id";
 $dbh->do($sql) or die $dbh->errstr;
-$dbh->commit;
+$dbh->commit if ($dbi_transaction == 1);
 print " done\n" if ($debug > 0);
 
 my $logline_end_day	= 0;
@@ -220,11 +234,11 @@ foreach $filename (@filelist) {
 	printlog "Parsing file $accesslogpath$filename";
 	if ((not -e "$accesslogpath$filename") and ($debug_filenum == 0) and ($filename ne $filelist[-1])){
 		print ">>> oldest file $accesslogpath$filename do not exist\n" if ($debug > 0);
-		printlog "Oldest file $accesslogpath$filename do not exist, go to next file.";
+		printlog "Oldest file $accesslogpath$filename do not exist, proceed next file.";
 		next;
 	}
 	if ($arch_proc ne "") {
-		open ACCESSLOG, "$arch_proc $accesslogpath$filename |" || die "can't access log file $arch_proc $accesslogpath/$filename\n";
+		open ACCESSLOG, "$arch_proc $accesslogpath$filename |" or die "can't access log file $arch_proc $accesslogpath/$filename\n";
 		$debug_filenum++;
 	} else {
 		open (ACCESSLOG, "<", "$accesslogpath$filename") or die "can't access log file\n";
@@ -338,9 +352,11 @@ if ($debug == 0) {
 	$dbh->do($sql) or die $dbh->errstr;
 }
 
-printlog ">>>> End working. (elapse " . ( time() - $^T ) . " sec)";
-
-$dbh->commit;
+if ($dbi_transaction == 1) {
+	print "Commit transaction\n" if ($debug > 0);
+	printlog "Commit transaction." if ($debug > 0);
+	$dbh->commit;
+}
 $dbh->disconnect;
 
 if ($debug > 0) {
@@ -352,4 +368,6 @@ if ($debug > 0) {
 	printf( "\t%10u lines skiped by filters\n",	 		$debug_skipbyfilter);
 	printf( "\t%10u lines have unknown URL format\n",	$debug_unknownurl);
 }
+
+printlog ">>>> End working. (elapse " . ( time() - $^T ) . " sec)";
 
