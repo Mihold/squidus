@@ -17,13 +17,13 @@
 # 
 # For details see http://www.gnu.org/licenses/gpl-2.0.html
 
-# Load default laguage file
+# Load default language file
 require('lang/en.php');
 
 # Get initial configuration
 require('squidus.ini.php');
 
-# Check laguage localization
+# Check language localization
 if (isset($conf['lang'])) {
 	if(!file_exists('lang/' . $conf['lang'] . '.php')) {
 		$template['err'] .= $lang['ERR_LANGUAGE_FILE'];
@@ -53,13 +53,23 @@ if(file_exists('install')) {
 }
 
 if (!mysql_select_db($dbs_db_name, $dbs)) {
-		$template['err'] .= $lang['ERR_DBS_DB'] . mysql_error();
+	$template['err'] .= $lang['ERR_DBS_DB'] . mysql_error();
 }
 
+####
 # Check user rights
+####
 
+
+####
 # Prepare output data
-
+####
+$template['title'] = 'SquidUS';
+$mode = 'index';
+if (isset($_GET['mode'])) {
+	
+}
+include("mod/$mode.php");
 mysql_close($dbs);
 
 # Apply data to template
@@ -68,6 +78,6 @@ mysql_close($dbs);
 if (!$template['err']) {
 	echo htmlspecialchars($template['err']);
 } else {
-	echo 'OK';
+	include('template/index.php');
 }
 ?>
