@@ -17,42 +17,19 @@
 # 
 # For details see http://www.gnu.org/licenses/gpl-2.0.html
 
-# Load default language file
-require('lang/en.php');
-
-# Get initial configuration
-require('squidus.ini.php');
-
-# Do common operations
-require('inc/common.php');
+$template['report_title'] = '';
+$template['report_body'] = '';
 
 ####
-# Check user rights
+# Last week mini reports
 ####
 
-
-####
-# Prepare output data
-####
-$template['title'] = 'Squidus';
-$template['info_version'] = 'Version 1.0 (dev)';
-$module = $sys_modules[0];							# Use default module
-if (isset($_GET['mode'])) {							# Check module registration
-	if(isset($sys_modules[$_GET['mode']])) {
-		$module = $sys_modules[$_GET['mode']];
-	}
-}
-include("mod/$module.php");
-mysql_close($dbs);
-
-####
-# Apply data to template
-####
-
-# Output formated page
-if (!$template['err']) {
-	echo htmlspecialchars($template['err']);
-} else {
-	include('template/index.php');
-}
+# Bigest downloads
+$mod_sql = 'SELECT t1.proxy_user_id, t2.ProxyUserName, SUM(RequestBytes) AS SumBytes
+FROM `stat_site` AS t1 LEFT JOIN info_pusers AS t2 ON t1.proxy_user_id = t2.proxy_user_id
+GROUP BY LogDate, proxy_user_id
+HAVING LogDate >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+ORDER BY SumBytes DESC
+LIMIT 5';
+#$dbs
 ?>
