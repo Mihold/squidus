@@ -337,7 +337,7 @@ printlog "Add new $sql_rows sites.";
 print "SQL: Add new proxy users..." if ($debug > 0);
 $sql = "INSERT INTO info_pusers (ProxyUserName)
 SELECT t1.UserName
-FROM stat_site AS t1
+FROM stat_site_tmp AS t1
 	LEFT JOIN info_pusers AS t2 ON t1.UserName = t2.ProxyUserName
 WHERE t2.ProxyUserName IS NULL
 GROUP BY t1.UserName
