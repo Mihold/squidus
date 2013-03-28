@@ -17,11 +17,6 @@
 # 
 # For details see http://www.gnu.org/licenses/gpl-2.0.html
 
-# Load default language file
-require('lang/en.php');
-
-# Get initial configuration
-require('squidus.ini.php');
 
 # Do common operations
 require('inc/common.php');
@@ -34,12 +29,22 @@ require('inc/common.php');
 ####
 # Prepare output data
 ####
-$template['title'] = 'Squidus';
-$template['info_version'] = 'Version 1.0 (dev)';
 $module = $sys_modules[0];							# Use default module
 if (isset($_GET['mode'])) {							# Check module registration
 	if(isset($sys_modules[$_GET['mode']])) {
 		$module = $sys_modules[$_GET['mode']];
+	}
+}
+# Load module default language file
+require("lang/en_$module.php");
+# Check module language localization
+if (isset($conf['lang'])) {
+	if(!file_exists('lang/' . $conf['lang'] . '_' . $module . '.php')) {
+		$template['err'] .= $lang['ERR_LANGUAGE_FILE'] . "\n";
+	} else {
+		include('lang/' . $conf['lang'] . '_' . $module . '.php');
+		$lang = array_merge($lang, $lang_local);
+		unset($lang_local);
 	}
 }
 include("mod/$module.php");
@@ -50,7 +55,7 @@ mysql_close($dbs);
 ####
 
 # Output formated page
-if (!$template['err']) {
+if ($template['err']) {
 	echo htmlspecialchars($template['err']);
 } else {
 	include('template/index.php');

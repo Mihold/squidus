@@ -1,0 +1,17 @@
+.nav {
+	float: left;
+	width: 140px;
+}
+
+.report  {
+    margin: 0px 0px 0px 150px;
+}
+
+.gadget {
+	float: left;
+    margin: 0px 10px 0px 10px;
+}
+
+.footer {
+    clear: both;
+}

@@ -10,10 +10,11 @@
 		<div class="header">
 			<h1>Squidus</h1>
 		</div>
-		<div class="nav"></div>
+		<div class="nav"><?php echo $template['navigator'] ?></div>
 		<div class="report">
-			<h2><?php echo $template['report_title'] ?><h2>
+			<h2><?php echo $template['report_title'] ?></h2>
 			<?php echo $template['report_body'] ?>
+			<div style="clear: both;"></div>
 		</div>
 		<div class="footer">
 			<p><?php echo $template['info_version'] ?></p>

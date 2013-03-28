@@ -17,10 +17,20 @@
 # 
 # For details see http://www.gnu.org/licenses/gpl-2.0.html
 
+# Load default language file
+require_once('lang/en.php');
+
+# Get initial configuration
+require_once('squidus.ini.php');
+
+# Product info
+$template['title'] = 'Squidus';
+$template['info_version'] = 'Version 1.0 (dev)';
+
 # Check language localization
 if (isset($conf['lang'])) {
 	if(!file_exists('lang/' . $conf['lang'] . '.php')) {
-		$template['err'] .= $lang['ERR_LANGUAGE_FILE'];
+		$template['err'] .= $lang['ERR_LANGUAGE_FILE'] . "\n";
 	} else {
 		include('lang/' . $conf['lang'] . '.php');
 		$lang = array_merge($lang, $lang_local);
@@ -35,9 +45,8 @@ if(!file_exists('template')) {
 
 # Connect to BDS
 $dbs = mysql_connect($conf['dbs_server'], $conf['dbs_user'], $conf['dbs_pass']);
-
 if (!$dbs) {
-    $template['err'] .= $lang['ERR_DBS_CONNECT'] . mysql_error();
+    $template['err'] .= $lang['ERR_DBS_CONNECT'] . mysql_error() . "\n";
 }
 
 if(file_exists('install')) {
@@ -46,8 +55,8 @@ if(file_exists('install')) {
 	exit();
 }
 
-if (!mysql_select_db($dbs_db_name, $dbs)) {
-	$template['err'] .= $lang['ERR_DBS_DB'] . mysql_error();
+if (!mysql_select_db($conf['dbs_db_name'], $dbs)) {
+	$template['err'] .= $lang['ERR_DBS_DB'] . mysql_error() . "\n";
 }
 
 # Get user name and check authority
