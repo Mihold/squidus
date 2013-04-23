@@ -1,3 +1,15 @@
+CREATE  TABLE IF NOT EXISTS info_options (
+  opt_key VARCHAR(15) NOT NULL ,
+  opt_val VARCHAR(15) NOT NULL ,
+  opt_descr TEXT,
+  PRIMARY KEY (opt_key) )
+ENGINE = MyISAM;
+
+INSERT INTO info_options (opt_key, opt_val, opt_descr)
+VALUES (
+'pars_max_subdom', '3', 'How meny subdomains use for recognize sites'
+);
+
 CREATE  TABLE IF NOT EXISTS info_site (
   site_id INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   domain_name VARCHAR(255) NOT NULL ,
