@@ -215,6 +215,25 @@ $dbh = DBI->connect("DBI:$dbi_driver:database=$dbi_db_name;host=$dbi_hostname",
     $dbi_user, $dbi_password) or die print "Can't connect";
 }
 
+# Get init data
+print "SQL: Get init data...\n" if ($debug > 0);
+$sql = "SELECT opt_key, opt_val FROM info_options";
+$sql_rows = $dbh->prepare($sql) or die $dbh->errstr;
+$sql_rows->execute or die $dbh->errstr;
+my %conf = ();
+while (my @sql_row = $sql_rows->fetchrow_array) {
+	$conf{$sql_row[0]} = $sql_row[1];
+	print $sql_row[0] . "\t= " . $sql_row[1] . "\n" if ($debug > 3);
+}
+printlog "Get init param from DB.";
+my $reg_subdom = '';
+my $reg_subdom_limitation = 0;
+if ($conf{'pars_max_subdom'} > 1) {
+	$reg_subdom = '(?:[^\.]+\.){1,' . ($conf{'pars_max_subdom'} - 1) . '}[^\.]+$';
+	$reg_subdom_limitation = 1;
+	printlog "INIT: Set URL domain levels limit to $conf{'pars_max_subdom'}.";
+}
+
 # Clear temporary data
 print "Clearing data for $sql_date..." if ($debug > 0);
 printlog "Clearing temporary table.";
@@ -297,6 +316,12 @@ foreach $filename (@filelist) {
 				}
 				$debug_unknownurl++;
 				next;
+			}
+		}
+		if ($reg_subdom_limitation == 1) {
+			if ($logline_site !~ m/^([0-9]{1,3})(\.[0-9]{1,3}){3}$/) {
+				$logline_site =~ m/$reg_subdom/;
+				$logline_site = $&;
 			}
 		}
 		$logline_size = $logline[$logline_col_size];
